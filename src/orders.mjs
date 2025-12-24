@@ -373,7 +373,7 @@ class OrderAPI extends BaseAPI {
     
     /**
      * Get current open position information.
-     * 
+     *
      * @param {Object} params - Open position parameters
      * @param {string} [params.strategy="NodeJS"] - The trading strategy name
      * @param {string} params.symbol - Trading symbol
@@ -383,7 +383,7 @@ class OrderAPI extends BaseAPI {
      */
     async openPosition({ strategy = "NodeJS", symbol, exchange, product = "MIS" }) {
         const url = `${this.baseUrl}openposition`;
-        
+
         const payload = {
             apikey: this.apiKey,
             strategy,
@@ -391,7 +391,112 @@ class OrderAPI extends BaseAPI {
             exchange,
             product
         };
-        
+
+        return this._post(url, payload);
+    }
+
+    /**
+     * Place an options order with automatic strike selection.
+     *
+     * @param {Object} params - Options order parameters
+     * @param {string} [params.strategy="NodeJS"] - The trading strategy name
+     * @param {string} params.underlying - Underlying symbol (e.g., "NIFTY", "BANKNIFTY")
+     * @param {string} params.exchange - Exchange code (e.g., "NSE_INDEX")
+     * @param {string} params.expiryDate - Expiry date (e.g., "28OCT25")
+     * @param {string} params.offset - Strike offset (e.g., "ATM", "ITM4", "OTM5")
+     * @param {string} params.optionType - Option type ("CE" or "PE")
+     * @param {string} params.action - BUY or SELL
+     * @param {number|string} params.quantity - Quantity to trade
+     * @param {string} [params.priceType="MARKET"] - Type of price
+     * @param {string} [params.product="NRML"] - Product type
+     * @param {number|string} [params.splitSize=0] - Split size for large orders
+     * @returns {Promise<Object>} JSON response from the API
+     */
+    async optionsOrder({
+        strategy = "NodeJS",
+        underlying,
+        exchange,
+        expiryDate,
+        offset,
+        optionType,
+        action,
+        quantity,
+        priceType = "MARKET",
+        product = "NRML",
+        splitSize = 0
+    }) {
+        const url = `${this.baseUrl}optionsorder`;
+
+        const payload = {
+            apikey: this.apiKey,
+            strategy,
+            underlying,
+            exchange,
+            expiry_date: expiryDate,
+            offset,
+            option_type: optionType,
+            action,
+            quantity: String(quantity),
+            pricetype: priceType,
+            product,
+            splitsize: String(splitSize)
+        };
+
+        return this._post(url, payload);
+    }
+
+    /**
+     * Place multiple options orders simultaneously (e.g., Iron Condor, Diagonal Spread).
+     *
+     * @param {Object} params - Options multi-order parameters
+     * @param {string} [params.strategy="NodeJS"] - The trading strategy name
+     * @param {string} params.underlying - Underlying symbol (e.g., "NIFTY")
+     * @param {string} params.exchange - Exchange code (e.g., "NSE_INDEX")
+     * @param {string} [params.expiryDate] - Default expiry date for all legs
+     * @param {Array<Object>} params.legs - Array of leg configurations
+     *   - offset: Strike offset (e.g., "OTM6", "ITM2")
+     *   - optionType: "CE" or "PE"
+     *   - action: "BUY" or "SELL"
+     *   - quantity: Quantity to trade
+     *   - expiryDate: (optional) Override expiry for this leg
+     * @returns {Promise<Object>} JSON response containing results for each leg
+     */
+    async optionsMultiOrder({
+        strategy = "NodeJS",
+        underlying,
+        exchange,
+        expiryDate,
+        legs
+    }) {
+        const url = `${this.baseUrl}optionsmultiorder`;
+
+        // Process legs to convert camelCase to snake_case and ensure string values
+        const processedLegs = legs.map(leg => {
+            const processedLeg = {
+                offset: leg.offset,
+                option_type: leg.optionType,
+                action: leg.action,
+                quantity: String(leg.quantity)
+            };
+            if (leg.expiryDate) {
+                processedLeg.expiry_date = leg.expiryDate;
+            }
+            return processedLeg;
+        });
+
+        const payload = {
+            apikey: this.apiKey,
+            strategy,
+            underlying,
+            exchange,
+            legs: processedLegs
+        };
+
+        // Add default expiry_date if provided
+        if (expiryDate) {
+            payload.expiry_date = expiryDate;
+        }
+
         return this._post(url, payload);
     }
 }

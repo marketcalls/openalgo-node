@@ -190,6 +190,170 @@ class DataAPI extends BaseAPI {
         };
         return this._post(url, payload);
     }
+
+    /**
+     * Get real-time quotes for multiple symbols.
+     *
+     * @param {Object} params - Request parameters
+     * @param {Array<Object>} params.symbols - Array of symbol objects with symbol and exchange
+     * @returns {Promise<Object>} JSON response containing quotes for all symbols
+     * @example
+     * const response = await client.multiQuotes({
+     *     symbols: [
+     *         { symbol: "RELIANCE", exchange: "NSE" },
+     *         { symbol: "TCS", exchange: "NSE" }
+     *     ]
+     * });
+     */
+    async multiQuotes({ symbols }) {
+        const url = `${this.baseUrl}multiquotes`;
+        const payload = {
+            apikey: this.apiKey,
+            symbols
+        };
+        return this._post(url, payload);
+    }
+
+    /**
+     * Get option chain data for an underlying.
+     *
+     * @param {Object} params - Request parameters
+     * @param {string} params.underlying - Underlying symbol (e.g., "NIFTY")
+     * @param {string} params.exchange - Exchange code (e.g., "NSE_INDEX")
+     * @param {string} params.expiryDate - Expiry date (e.g., "30DEC25")
+     * @param {number} [params.strikeCount] - Number of strikes around ATM (optional)
+     * @returns {Promise<Object>} JSON response containing option chain data
+     * @example
+     * const response = await client.optionChain({
+     *     underlying: "NIFTY",
+     *     exchange: "NSE_INDEX",
+     *     expiryDate: "30DEC25",
+     *     strikeCount: 10
+     * });
+     */
+    async optionChain({ underlying, exchange, expiryDate, strikeCount }) {
+        const url = `${this.baseUrl}optionchain`;
+        const payload = {
+            apikey: this.apiKey,
+            underlying,
+            exchange,
+            expiry_date: expiryDate
+        };
+
+        if (strikeCount !== undefined) {
+            payload.strike_count = strikeCount;
+        }
+
+        return this._post(url, payload);
+    }
+
+    /**
+     * Get option symbol based on offset from ATM.
+     *
+     * @param {Object} params - Request parameters
+     * @param {string} params.underlying - Underlying symbol (e.g., "NIFTY")
+     * @param {string} params.exchange - Exchange code (e.g., "NSE_INDEX")
+     * @param {string} params.expiryDate - Expiry date (e.g., "30DEC25")
+     * @param {string} params.offset - Strike offset (e.g., "ATM", "ITM3", "OTM4")
+     * @param {string} params.optionType - Option type ("CE" or "PE")
+     * @returns {Promise<Object>} JSON response containing option symbol details
+     * @example
+     * const response = await client.optionSymbol({
+     *     underlying: "NIFTY",
+     *     exchange: "NSE_INDEX",
+     *     expiryDate: "30DEC25",
+     *     offset: "ATM",
+     *     optionType: "CE"
+     * });
+     */
+    async optionSymbol({ underlying, exchange, expiryDate, offset, optionType }) {
+        const url = `${this.baseUrl}optionsymbol`;
+        const payload = {
+            apikey: this.apiKey,
+            underlying,
+            exchange,
+            expiry_date: expiryDate,
+            offset,
+            option_type: optionType
+        };
+        return this._post(url, payload);
+    }
+
+    /**
+     * Calculate synthetic future price from ATM options.
+     *
+     * @param {Object} params - Request parameters
+     * @param {string} params.underlying - Underlying symbol (e.g., "NIFTY")
+     * @param {string} params.exchange - Exchange code (e.g., "NSE_INDEX")
+     * @param {string} params.expiryDate - Expiry date (e.g., "25NOV25")
+     * @returns {Promise<Object>} JSON response containing synthetic future price
+     * @example
+     * const response = await client.syntheticFuture({
+     *     underlying: "NIFTY",
+     *     exchange: "NSE_INDEX",
+     *     expiryDate: "25NOV25"
+     * });
+     */
+    async syntheticFuture({ underlying, exchange, expiryDate }) {
+        const url = `${this.baseUrl}syntheticfuture`;
+        const payload = {
+            apikey: this.apiKey,
+            underlying,
+            exchange,
+            expiry_date: expiryDate
+        };
+        return this._post(url, payload);
+    }
+
+    /**
+     * Calculate option Greeks for a symbol.
+     *
+     * @param {Object} params - Request parameters
+     * @param {string} params.symbol - Option symbol (e.g., "NIFTY25NOV2526000CE")
+     * @param {string} params.exchange - Exchange code (e.g., "NFO")
+     * @param {number} [params.interestRate=0] - Risk-free interest rate
+     * @param {string} params.underlyingSymbol - Underlying symbol (e.g., "NIFTY")
+     * @param {string} params.underlyingExchange - Underlying exchange (e.g., "NSE_INDEX")
+     * @returns {Promise<Object>} JSON response containing option Greeks
+     * @example
+     * const response = await client.optionGreeks({
+     *     symbol: "NIFTY25NOV2526000CE",
+     *     exchange: "NFO",
+     *     interestRate: 0.00,
+     *     underlyingSymbol: "NIFTY",
+     *     underlyingExchange: "NSE_INDEX"
+     * });
+     */
+    async optionGreeks({ symbol, exchange, interestRate = 0, underlyingSymbol, underlyingExchange }) {
+        const url = `${this.baseUrl}optiongreeks`;
+        const payload = {
+            apikey: this.apiKey,
+            symbol,
+            exchange,
+            interest_rate: interestRate,
+            underlying_symbol: underlyingSymbol,
+            underlying_exchange: underlyingExchange
+        };
+        return this._post(url, payload);
+    }
+
+    /**
+     * Get all instruments for an exchange.
+     *
+     * @param {Object} params - Request parameters
+     * @param {string} params.exchange - Exchange code (e.g., "NSE", "NFO")
+     * @returns {Promise<Object>} JSON response containing instruments data
+     * @example
+     * const response = await client.instruments({ exchange: "NSE" });
+     */
+    async instruments({ exchange }) {
+        const url = `${this.baseUrl}instruments`;
+        const payload = {
+            apikey: this.apiKey,
+            exchange
+        };
+        return this._post(url, payload);
+    }
 }
 
 export default DataAPI;

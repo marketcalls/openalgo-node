@@ -26,6 +26,11 @@ class OpenAlgo extends OrderAPIClass {
         this._apiKey = apiKey;
     }
 
+    // Order API methods (from OrderAPIClass via inheritance)
+    // placeOrder, placeSmartOrder, basketOrder, splitOrder, modifyOrder,
+    // cancelOrder, cancelAllOrder, closePosition, orderStatus, openPosition,
+    // optionsOrder, optionsMultiOrder are inherited
+
     // Data API methods
     quotes(params) { return this._dataAPI.quotes(params); }
     depth(params) { return this._dataAPI.depth(params); }
@@ -34,6 +39,12 @@ class OpenAlgo extends OrderAPIClass {
     intervals() { return this._dataAPI.intervals(); }
     expiry(params) { return this._dataAPI.expiry(params); }
     search(params) { return this._dataAPI.search(params); }
+    multiQuotes(params) { return this._dataAPI.multiQuotes(params); }
+    optionChain(params) { return this._dataAPI.optionChain(params); }
+    optionSymbol(params) { return this._dataAPI.optionSymbol(params); }
+    syntheticFuture(params) { return this._dataAPI.syntheticFuture(params); }
+    optionGreeks(params) { return this._dataAPI.optionGreeks(params); }
+    instruments(params) { return this._dataAPI.instruments(params); }
 
     // Account API methods
     funds() { return this._accountAPI.funds(); }
@@ -41,6 +52,10 @@ class OpenAlgo extends OrderAPIClass {
     tradebook() { return this._accountAPI.tradebook(); }
     positionbook() { return this._accountAPI.positionbook(); }
     holdings() { return this._accountAPI.holdings(); }
+    margin(params) { return this._accountAPI.margin(params); }
+    holidays(params) { return this._accountAPI.holidays(params); }
+    timings(params) { return this._accountAPI.timings(params); }
+    telegram(params) { return this._accountAPI.telegram(params); }
 
     // Analyzer API methods
     analyzerstatus() { return this._analyzerAPI.analyzerstatus(); }
@@ -141,7 +156,7 @@ export const AccountAPI = AccountAPIClass;
 export const Strategy = StrategyClass;
 export const AnalyzerAPI = AnalyzerAPIClass;
 export const OpenAlgoWebSocket = OpenAlgoWebSocketClass;
-export const version = "1.0.4";
+export const version = "1.0.5";
 
 // Default export
 export default OpenAlgo;
