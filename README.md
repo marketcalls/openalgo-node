@@ -454,9 +454,130 @@ async function getHoldings() {
   try {
     const holdings = await openalgo.holdings();
     console.log('Holdings:', holdings);
-    // Returns stocks held in demat account with valuation
+    // Response:
+    // {
+    //   status: 'success',
+    //   data: [
+    //     {
+    //       symbol: 'RELIANCE',
+    //       exchange: 'NSE',
+    //       quantity: 10,
+    //       product: 'CNC',
+    //       pnl: 1250.50,
+    //       pnlpercent: 2.5
+    //     }
+    //   ]
+    // }
   } catch (error) {
     console.error('Error fetching holdings:', error.message);
+  }
+}
+```
+
+#### Getting Trading Holidays
+
+```javascript
+async function getHolidays() {
+  try {
+    const holidays = await openalgo.holidays({ year: 2025 });
+    console.log('Trading Holidays:', holidays);
+    // Response:
+    // {
+    //   status: 'success',
+    //   data: [
+    //     { date: '2025-01-26', description: 'Republic Day' },
+    //     { date: '2025-03-14', description: 'Holi' },
+    //     { date: '2025-08-15', description: 'Independence Day' }
+    //   ]
+    // }
+  } catch (error) {
+    console.error('Error fetching holidays:', error.message);
+  }
+}
+```
+
+#### Getting Exchange Timings
+
+```javascript
+async function getTimings() {
+  try {
+    const timings = await openalgo.timings({ date: '2025-12-25' });
+    console.log('Exchange Timings:', timings);
+    // Response:
+    // {
+    //   status: 'success',
+    //   data: {
+    //     NSE: { market_open: '09:15', market_close: '15:30' },
+    //     BSE: { market_open: '09:15', market_close: '15:30' },
+    //     NFO: { market_open: '09:15', market_close: '15:30' },
+    //     MCX: { market_open: '09:00', market_close: '23:30' }
+    //   }
+    // }
+  } catch (error) {
+    console.error('Error fetching timings:', error.message);
+  }
+}
+```
+
+#### Sending Telegram Notifications
+
+```javascript
+async function sendTelegramAlert() {
+  try {
+    const result = await openalgo.telegram({
+      username: 'your_openalgo_username',
+      message: 'NIFTY crossed 26000! Time to review positions.',
+      priority: 7  // Optional: 1-10, higher = more urgent (default: 5)
+    });
+    console.log('Telegram Result:', result);
+    // Response:
+    // {
+    //   status: 'success',
+    //   message: 'Notification sent successfully'
+    // }
+  } catch (error) {
+    console.error('Error sending telegram:', error.message);
+  }
+}
+```
+
+#### Calculating Margin Requirements
+
+```javascript
+async function calculateMargin() {
+  try {
+    const margin = await openalgo.margin({
+      positions: [
+        {
+          symbol: 'NIFTY25DEC24000CE',
+          exchange: 'NFO',
+          action: 'BUY',
+          product: 'NRML',
+          priceType: 'MARKET',
+          quantity: 75
+        },
+        {
+          symbol: 'NIFTY25DEC24500CE',
+          exchange: 'NFO',
+          action: 'SELL',
+          product: 'NRML',
+          priceType: 'MARKET',
+          quantity: 75
+        }
+      ]
+    });
+    console.log('Margin Requirements:', margin);
+    // Response:
+    // {
+    //   status: 'success',
+    //   data: {
+    //     total_margin: 125000.50,
+    //     available_margin: 500000.00,
+    //     utilized_margin: 125000.50
+    //   }
+    // }
+  } catch (error) {
+    console.error('Error calculating margin:', error.message);
   }
 }
 ```
@@ -472,7 +593,15 @@ async function getAnalyzerStatus() {
   try {
     const status = await openalgo.analyzerstatus();
     console.log('Analyzer Status:', status);
-    // Returns current mode (live/analyze) and statistics
+    // Response:
+    // {
+    //   status: 'success',
+    //   data: {
+    //     analyze_mode: true,
+    //     mode: 'analyze',
+    //     total_logs: 121
+    //   }
+    // }
   } catch (error) {
     console.error('Error fetching analyzer status:', error.message);
   }
@@ -487,10 +616,30 @@ async function toggleAnalyzerMode() {
     // Enable analyze mode (simulated trading)
     const enableResult = await openalgo.analyzertoggle({ mode: true });
     console.log('Analyzer Mode Enabled:', enableResult);
+    // Response:
+    // {
+    //   status: 'success',
+    //   data: {
+    //     analyze_mode: true,
+    //     mode: 'analyze',
+    //     total_logs: 121,
+    //     message: 'Analyzer mode switched to analyze'
+    //   }
+    // }
 
     // Disable analyze mode (live trading)
     const disableResult = await openalgo.analyzertoggle({ mode: false });
     console.log('Analyzer Mode Disabled:', disableResult);
+    // Response:
+    // {
+    //   status: 'success',
+    //   data: {
+    //     analyze_mode: false,
+    //     mode: 'live',
+    //     total_logs: 121,
+    //     message: 'Analyzer mode switched to live'
+    //   }
+    // }
   } catch (error) {
     console.error('Error toggling analyzer mode:', error.message);
   }
