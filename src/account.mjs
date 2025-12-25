@@ -139,7 +139,7 @@ class AccountAPI extends BaseAPI {
      * const response = await client.holidays({ year: 2026 });
      */
     async holidays({ year }) {
-        const url = `${this.baseUrl}holidays`;
+        const url = `${this.baseUrl}market/holidays`;
         const payload = {
             apikey: this.apiKey,
             year
@@ -157,7 +157,7 @@ class AccountAPI extends BaseAPI {
      * const response = await client.timings({ date: "2025-12-19" });
      */
     async timings({ date }) {
-        const url = `${this.baseUrl}timings`;
+        const url = `${this.baseUrl}market/timings`;
         const payload = {
             apikey: this.apiKey,
             date
@@ -171,19 +171,22 @@ class AccountAPI extends BaseAPI {
      * @param {Object} params - Request parameters
      * @param {string} params.username - OpenAlgo login ID
      * @param {string} params.message - Message to send
+     * @param {number} [params.priority=5] - Message priority (1-10, higher = more urgent)
      * @returns {Promise<Object>} JSON response with notification status
      * @example
      * const response = await client.telegram({
      *     username: "your_login_id",
-     *     message: "NIFTY crossed 26000!"
+     *     message: "NIFTY crossed 26000!",
+     *     priority: 7
      * });
      */
-    async telegram({ username, message }) {
-        const url = `${this.baseUrl}telegram`;
+    async telegram({ username, message, priority = 5 }) {
+        const url = `${this.baseUrl}telegram/notify`;
         const payload = {
             apikey: this.apiKey,
             username,
-            message
+            message,
+            priority
         };
         return this._post(url, payload);
     }
