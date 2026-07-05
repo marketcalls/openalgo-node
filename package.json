@@ -1,6 +1,6 @@
 {
   "name": "openalgo",
-  "version": "1.0.7",
+  "version": "1.1.0",
   "description": "A Node.js wrapper for the OpenAlgo API with WebSocket support",
   "main": "src/index.mjs",
   "type": "module",
@@ -15,7 +15,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/marketcalls/openalgo-node.git"
+    "url": "git+https://github.com/marketcalls/openalgo-node.git"
   },
   "keywords": [
     "openalgo",
