@@ -23,6 +23,15 @@ class OpenAlgoWebSocket {
         this.maxReconnectAttempts = 5;
         this.reconnectDelay = 3000;
         this.shouldReconnect = true;
+
+        // Local cache of the most recent market-data snapshot per
+        // instrument, mirroring the Python SDK's `ltp_data` / `quotes_data`
+        // / `depth_data` dicts (keyed by "EXCHANGE:SYMBOL"). Populated as
+        // messages arrive in `_handleMessage` and served (read-only) by
+        // `getLtp` / `getQuotes` / `getDepth`.
+        this.ltpData = {};
+        this.quotesData = {};
+        this.depthData = {};
     }
 
     /**
@@ -267,6 +276,41 @@ class OpenAlgoWebSocket {
         // Handle market_data type messages
         if (message.type === 'market_data') {
             const mode = message.mode;
+            const exchange = message.exchange;
+            const symbol = message.symbol;
+            const data = message.data || {};
+
+            // Cache the latest snapshot per instrument so getLtp/getQuotes/
+            // getDepth can serve polled reads without a live callback.
+            if (exchange && symbol) {
+                const symbolKey = `${exchange}:${symbol}`;
+                const timestamp = data.timestamp !== undefined ? data.timestamp : Date.now();
+
+                if (mode === 1 && 'ltp' in data) {
+                    this.ltpData[symbolKey] = { price: data.ltp, timestamp };
+                } else if (mode === 2) {
+                    this.quotesData[symbolKey] = {
+                        open: data.open || 0,
+                        high: data.high || 0,
+                        low: data.low || 0,
+                        close: data.close || 0,
+                        ltp: data.ltp || 0,
+                        volume: data.volume || 0,
+                        last_trade_quantity: data.last_trade_quantity || 0,
+                        avg_trade_price: data.avg_trade_price || 0,
+                        change: data.change || 0,
+                        change_percent: data.change_percent || 0,
+                        timestamp
+                    };
+                } else if (mode === 3 && 'depth' in data) {
+                    this.depthData[symbolKey] = {
+                        ltp: data.ltp || 0,
+                        timestamp,
+                        depth: data.depth || { buy: [], sell: [] }
+                    };
+                }
+            }
+
             if (mode === 1 && this.subscriptions.has('ltp')) {
                 this.subscriptions.get('ltp')(message.data);
             } else if (mode === 2 && this.subscriptions.has('quote')) {
@@ -278,6 +322,130 @@ class OpenAlgoWebSocket {
             // Handle status and other messages
             console.log('WebSocket status:', message);
         }
+    }
+
+    /**
+     * Get the latest cached LTP snapshot in nested format.
+     *
+     * @param {string} [exchange] - Filter by exchange
+     * @param {string} [symbol] - Filter by symbol (requires exchange to be specified)
+     * @returns {Object} `{ ltp: { EXCHANGE: { SYMBOL: { timestamp, ltp } } } }`
+     */
+    getLtp(exchange, symbol) {
+        const result = { ltp: {} };
+
+        for (const [symbolKey, data] of Object.entries(this.ltpData)) {
+            const separatorIndex = symbolKey.indexOf(':');
+            if (separatorIndex === -1) continue;
+
+            const ex = symbolKey.slice(0, separatorIndex);
+            const sym = symbolKey.slice(separatorIndex + 1);
+
+            if (exchange && ex !== exchange) continue;
+            if (symbol && sym !== symbol) continue;
+
+            if (!result.ltp[ex]) result.ltp[ex] = {};
+            result.ltp[ex][sym] = { timestamp: data.timestamp, ltp: data.price };
+        }
+
+        return result;
+    }
+
+    /**
+     * Get the latest cached Quote snapshot in nested format.
+     *
+     * @param {string} [exchange] - Filter by exchange
+     * @param {string} [symbol] - Filter by symbol (requires exchange to be specified)
+     * @returns {Object} `{ quote: { EXCHANGE: { SYMBOL: { timestamp, open, high, low, close, ltp, volume, last_trade_quantity, avg_trade_price, change, change_percent } } } }`
+     */
+    getQuotes(exchange, symbol) {
+        const result = { quote: {} };
+
+        for (const [symbolKey, data] of Object.entries(this.quotesData)) {
+            const separatorIndex = symbolKey.indexOf(':');
+            if (separatorIndex === -1) continue;
+
+            const ex = symbolKey.slice(0, separatorIndex);
+            const sym = symbolKey.slice(separatorIndex + 1);
+
+            if (exchange && ex !== exchange) continue;
+            if (symbol && sym !== symbol) continue;
+
+            if (!result.quote[ex]) result.quote[ex] = {};
+            result.quote[ex][sym] = {
+                timestamp: data.timestamp,
+                open: data.open,
+                high: data.high,
+                low: data.low,
+                close: data.close,
+                ltp: data.ltp,
+                volume: data.volume || 0,
+                last_trade_quantity: data.last_trade_quantity || 0,
+                avg_trade_price: data.avg_trade_price || 0,
+                change: data.change || 0,
+                change_percent: data.change_percent || 0
+            };
+        }
+
+        return result;
+    }
+
+    /**
+     * Get the latest cached Market Depth snapshot in nested format.
+     *
+     * @param {string} [exchange] - Filter by exchange
+     * @param {string} [symbol] - Filter by symbol (requires exchange to be specified)
+     * @returns {Object} `{ depth: { EXCHANGE: { SYMBOL: { timestamp, ltp, buyBook: {"1": {price, qty, orders}, ...}, sellBook: {...} } } } }`
+     */
+    getDepth(exchange, symbol) {
+        const result = { depth: {} };
+
+        for (const [symbolKey, data] of Object.entries(this.depthData)) {
+            const separatorIndex = symbolKey.indexOf(':');
+            if (separatorIndex === -1) continue;
+
+            const ex = symbolKey.slice(0, separatorIndex);
+            const sym = symbolKey.slice(separatorIndex + 1);
+
+            if (exchange && ex !== exchange) continue;
+            if (symbol && sym !== symbol) continue;
+
+            if (!result.depth[ex]) result.depth[ex] = {};
+
+            const entry = {
+                timestamp: data.timestamp !== undefined ? data.timestamp : Date.now(),
+                ltp: data.ltp || 0,
+                buyBook: {},
+                sellBook: {}
+            };
+
+            const buyDepth = (data.depth && data.depth.buy) || [];
+            const sellDepth = (data.depth && data.depth.sell) || [];
+
+            for (let i = 0; i < 5; i++) {
+                const buyLevel = buyDepth[i];
+                entry.buyBook[String(i + 1)] = buyLevel
+                    ? {
+                        price: Number(buyLevel.price) || 0,
+                        qty: Number(buyLevel.quantity) || 0,
+                        orders: Number(buyLevel.orders) || 0
+                    }
+                    : { price: 0.0, qty: 0, orders: 0 };
+
+                const sellLevel = sellDepth[i];
+                entry.sellBook[String(i + 1)] = sellLevel
+                    ? {
+                        price: Number(sellLevel.price) || 0,
+                        qty: Number(sellLevel.quantity) || 0,
+                        orders: Number(sellLevel.orders) || 0
+                    }
+                    : { price: 0.0, qty: 0, orders: 0 };
+            }
+
+            result.depth[ex][sym] = entry;
+        }
+
+        return result;
     }
 
     /**

@@ -378,10 +378,11 @@ class OrderAPI extends BaseAPI {
      * @param {string} [params.strategy="NodeJS"] - The trading strategy name
      * @param {string} params.symbol - Trading symbol
      * @param {string} params.exchange - Exchange code
-     * @param {string} [params.product="MIS"] - Product type
+     * @param {string} params.product - Product type. Required (no default,
+     *   matching the Python SDK).
      * @returns {Promise<Object>} JSON response with position details
      */
-    async openPosition({ strategy = "NodeJS", symbol, exchange, product = "MIS" }) {
+    async openPosition({ strategy = "NodeJS", symbol, exchange, product }) {
         const url = `${this.baseUrl}openposition`;
 
         const payload = {
@@ -410,7 +411,28 @@ class OrderAPI extends BaseAPI {
      * @param {string} [params.priceType="MARKET"] - Type of price
      * @param {string} [params.product="NRML"] - Product type
      * @param {number|string} [params.splitSize=0] - Split size for large orders
+     * @param {number|string} [params.price] - Limit price. Required for LIMIT orders.
+     * @param {number|string} [params.triggerPrice] - Trigger price (also accepted
+     *   as `trigger_price`). Required for SL and SL-M orders.
+     * @param {number|string} [params.disclosedQuantity] - Disclosed quantity
+     *   (also accepted as `disclosed_quantity`).
+     * @param {Object} [params.otherParams] - Any other fields are forwarded
+     *   verbatim (numbers are stringified), matching the Python SDK's
+     *   `**kwargs` passthrough.
      * @returns {Promise<Object>} JSON response from the API
+     * @example
+     * // LIMIT option order
+     * await client.optionsOrder({
+     *     underlying: 'NIFTY',
+     *     exchange: 'NSE_INDEX',
+     *     expiryDate: '28NOV24',
+     *     offset: 'OTM1',
+     *     optionType: 'CE',
+     *     action: 'BUY',
+     *     quantity: 75,
+     *     priceType: 'LIMIT',
+     *     price: 50.0
+     * });
      */
     async optionsOrder({
         strategy = "NodeJS",
@@ -423,7 +445,13 @@ class OrderAPI extends BaseAPI {
         quantity,
         priceType = "MARKET",
         product = "NRML",
-        splitSize = 0
+        splitSize = 0,
+        price,
+        triggerPrice,
+        trigger_price,
+        disclosedQuantity,
+        disclosed_quantity,
+        ...otherParams
     }) {
         const url = `${this.baseUrl}optionsorder`;
 
@@ -442,6 +470,29 @@ class OrderAPI extends BaseAPI {
             splitsize: String(splitSize)
         };
 
+        if (price !== undefined && price !== null) {
+            payload.price = String(price);
+        }
+
+        const resolvedTriggerPrice = triggerPrice !== undefined ? triggerPrice : trigger_price;
+        if (resolvedTriggerPrice !== undefined && resolvedTriggerPrice !== null) {
+            payload.trigger_price = String(resolvedTriggerPrice);
+        }
+
+        const resolvedDisclosedQuantity = disclosedQuantity !== undefined ? disclosedQuantity : disclosed_quantity;
+        if (resolvedDisclosedQuantity !== undefined && resolvedDisclosedQuantity !== null) {
+            payload.disclosed_quantity = String(resolvedDisclosedQuantity);
+        }
+
+        // Forward any other parameters verbatim (numbers stringified),
+        // mirroring Python's **kwargs passthrough for future fields.
+        for (const [key, value] of Object.entries(otherParams)) {
+            if (value !== undefined && value !== null) {
+                const apiKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
+                payload[apiKey] = typeof value === 'number' ? String(value) : value;
+            }
+        }
+
         return this._post(url, payload);
     }
 
@@ -459,7 +510,24 @@ class OrderAPI extends BaseAPI {
      *   - action: "BUY" or "SELL"
      *   - quantity: Quantity to trade
      *   - expiryDate: (optional) Override expiry for this leg
+     *   - priceType (or pricetype): (optional) MARKET/LIMIT/SL/SL-M. Default: MARKET.
+     *   - product: (optional) Product type (MIS/NRML). Default: MIS.
+     *   - price: (optional) Limit price for LIMIT orders.
+     *   - triggerPrice (or trigger_price): (optional) Trigger price for SL orders.
+     *   - disclosedQuantity (or disclosed_quantity): (optional) Disclosed quantity.
      * @returns {Promise<Object>} JSON response containing results for each leg
+     * @example
+     * // Long Straddle with LIMIT orders
+     * await client.optionsMultiOrder({
+     *     strategy: 'Long Straddle',
+     *     underlying: 'BANKNIFTY',
+     *     exchange: 'NSE_INDEX',
+     *     expiryDate: '25NOV25',
+     *     legs: [
+     *         { offset: 'ATM', optionType: 'CE', action: 'BUY', quantity: 30, priceType: 'LIMIT', price: 250.0 },
+     *         { offset: 'ATM', optionType: 'PE', action: 'BUY', quantity: 30, priceType: 'LIMIT', price: 250.0 }
+     *     ]
+     * });
      */
     async optionsMultiOrder({
         strategy = "NodeJS",
@@ -481,6 +549,30 @@ class OrderAPI extends BaseAPI {
             if (leg.expiryDate) {
                 processedLeg.expiry_date = leg.expiryDate;
             }
+
+            const priceType = leg.priceType !== undefined ? leg.priceType : leg.pricetype;
+            if (priceType !== undefined && priceType !== null) {
+                processedLeg.pricetype = priceType;
+            }
+
+            if (leg.product !== undefined && leg.product !== null) {
+                processedLeg.product = leg.product;
+            }
+
+            if (leg.price !== undefined && leg.price !== null) {
+                processedLeg.price = String(leg.price);
+            }
+
+            const triggerPrice = leg.triggerPrice !== undefined ? leg.triggerPrice : leg.trigger_price;
+            if (triggerPrice !== undefined && triggerPrice !== null) {
+                processedLeg.trigger_price = String(triggerPrice);
+            }
+
+            const disclosedQuantity = leg.disclosedQuantity !== undefined ? leg.disclosedQuantity : leg.disclosed_quantity;
+            if (disclosedQuantity !== undefined && disclosedQuantity !== null) {
+                processedLeg.disclosed_quantity = String(disclosedQuantity);
+            }
+
             return processedLeg;
         });
 

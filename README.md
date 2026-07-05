@@ -19,7 +19,8 @@ The OpenAlgo Node.js library is organized into modular components:
 - **OrderAPI**: Comprehensive order management capabilities
 - **AccountAPI**: Account information and portfolio management
 - **AnalyzerAPI**: Analyzer mode for simulated trading
-- **WebSocket**: Real-time market data streaming (LTP, Quote, Market Depth)
+- **WhatsAppAPI**: WhatsApp notifications via the OpenAlgo paired device
+- **WebSocket**: Real-time market data streaming (LTP, Quote, Market Depth) with polled snapshot getters (`getLtp`, `getQuotes`, `getDepth`)
 - **Strategy**: TradingView integration for strategy execution
 
 ## Usage Examples
@@ -221,6 +222,42 @@ async function getSupportedIntervals() {
 }
 ```
 
+`openalgo.interval()` is a legacy alias kept for backwards compatibility — it
+simply calls `intervals()` under the hood and returns the same response:
+
+```javascript
+async function getSupportedIntervalsLegacy() {
+  try {
+    const intervals = await openalgo.interval(); // same response as intervals()
+    console.log('Supported Intervals:', intervals);
+  } catch (error) {
+    console.error('Error fetching intervals:', error.message);
+  }
+}
+```
+
+#### Calculating Option Greeks
+
+```javascript
+async function getOptionGreeks() {
+  try {
+    const greeks = await openalgo.optionGreeks({
+      symbol: 'NIFTY02DEC2526000CE',
+      exchange: 'NFO',
+      interestRate: 6.5,           // optional, default 0
+      forwardPrice: 26350,         // optional: custom forward/synthetic futures price
+      underlyingSymbol: 'NIFTY',   // optional: auto-detected if omitted
+      underlyingExchange: 'NSE_INDEX', // optional: auto-detected if omitted
+      expiryTime: '19:00'          // optional: required for MCX contracts with non-standard expiry
+    });
+    console.log('Option Greeks:', greeks);
+    // Returns delta, gamma, theta, vega, rho and implied volatility
+  } catch (error) {
+    console.error('Error calculating option greeks:', error.message);
+  }
+}
+```
+
 ### OrderAPI
 
 Comprehensive order management capabilities for trading.
@@ -387,6 +424,110 @@ async function closePositions() {
 }
 ```
 
+#### Getting Current Open Position
+
+`product` is a **required** parameter (no default), matching the Python SDK.
+
+```javascript
+async function getOpenPosition() {
+  try {
+    const position = await openalgo.openPosition({
+      strategy: 'MyStrategy',
+      symbol: 'RELIANCE',
+      exchange: 'NSE',
+      product: 'MIS'  // Required: MIS, NRML, or CNC
+    });
+    console.log('Open Position:', position);
+    // { status: 'success', quantity: '50' }
+  } catch (error) {
+    console.error('Error fetching open position:', error.message);
+  }
+}
+```
+
+#### Placing an Options Order (Auto-Resolved Strike)
+
+```javascript
+async function placeOptionsOrder() {
+  try {
+    // MARKET order
+    const marketOrder = await openalgo.optionsOrder({
+      underlying: 'NIFTY',
+      exchange: 'NSE_INDEX',
+      expiryDate: '28NOV24',
+      offset: 'ATM',
+      optionType: 'CE',
+      action: 'BUY',
+      quantity: 75
+    });
+    console.log('Options Order:', marketOrder);
+
+    // LIMIT order - price, triggerPrice and disclosedQuantity are
+    // forwarded to the server (triggerPrice/disclosedQuantity also
+    // accept the snake_case form: trigger_price/disclosed_quantity)
+    const limitOrder = await openalgo.optionsOrder({
+      underlying: 'NIFTY',
+      exchange: 'NSE_INDEX',
+      expiryDate: '28NOV24',
+      offset: 'OTM1',
+      optionType: 'CE',
+      action: 'BUY',
+      quantity: 75,
+      priceType: 'LIMIT',
+      price: 50.0
+    });
+    console.log('Limit Options Order:', limitOrder);
+
+    // SL order with a trigger price
+    const slOrder = await openalgo.optionsOrder({
+      underlying: 'NIFTY',
+      exchange: 'NSE_INDEX',
+      expiryDate: '28NOV24',
+      offset: 'ATM',
+      optionType: 'PE',
+      action: 'SELL',
+      quantity: 75,
+      priceType: 'SL',
+      price: 45.0,
+      triggerPrice: 46.0,
+      disclosedQuantity: 25
+    });
+    console.log('SL Options Order:', slOrder);
+  } catch (error) {
+    console.error('Error placing options order:', error.message);
+  }
+}
+```
+
+#### Placing a Multi-Leg Options Order
+
+```javascript
+async function placeIronCondor() {
+  try {
+    const result = await openalgo.optionsMultiOrder({
+      strategy: 'Iron Condor',
+      underlying: 'NIFTY',
+      exchange: 'NSE_INDEX',
+      expiryDate: '25NOV25',
+      legs: [
+        { offset: 'OTM10', optionType: 'CE', action: 'BUY', quantity: 75 },
+        { offset: 'OTM10', optionType: 'PE', action: 'BUY', quantity: 75 },
+        {
+          offset: 'OTM5', optionType: 'CE', action: 'SELL', quantity: 75,
+          // Per-leg overrides are all forwarded to the server:
+          priceType: 'LIMIT', product: 'NRML', price: 120.0,
+          triggerPrice: 118.0, disclosedQuantity: 25
+        },
+        { offset: 'OTM5', optionType: 'PE', action: 'SELL', quantity: 75 }
+      ]
+    });
+    console.log('Iron Condor Result:', result);
+  } catch (error) {
+    console.error('Error placing multi-leg options order:', error.message);
+  }
+}
+```
+
 ### AccountAPI
 
 Access to account information and portfolio details.
@@ -476,6 +617,9 @@ async function getHoldings() {
 
 #### Getting Trading Holidays
 
+`year` is optional and defaults to the current year (resolved client-side)
+when omitted, matching the Python SDK.
+
 ```javascript
 async function getHolidays() {
   try {
@@ -490,6 +634,10 @@ async function getHolidays() {
     //     { date: '2025-08-15', description: 'Independence Day' }
     //   ]
     // }
+
+    // Omit the year to default to the current year
+    const currentYearHolidays = await openalgo.holidays();
+    console.log('Current Year Holidays:', currentYearHolidays);
   } catch (error) {
     console.error('Error fetching holidays:', error.message);
   }
@@ -497,6 +645,9 @@ async function getHolidays() {
 ```
 
 #### Getting Exchange Timings
+
+`date` is optional and defaults to today's date (resolved client-side) when
+omitted, matching the Python SDK.
 
 ```javascript
 async function getTimings() {
@@ -513,6 +664,10 @@ async function getTimings() {
     //     MCX: { market_open: '09:00', market_close: '23:30' }
     //   }
     // }
+
+    // Omit the date to default to today
+    const todaysTimings = await openalgo.timings();
+    console.log("Today's Timings:", todaysTimings);
   } catch (error) {
     console.error('Error fetching timings:', error.message);
   }
@@ -537,6 +692,73 @@ async function sendTelegramAlert() {
     // }
   } catch (error) {
     console.error('Error sending telegram:', error.message);
+  }
+}
+```
+
+#### Sending WhatsApp Notifications
+
+Send a WhatsApp message via the OpenAlgo paired device. The server must
+already be paired to a WhatsApp account from the `/whatsapp` admin page in
+the OpenAlgo web UI (pairing itself is not exposed via the API).
+
+Recipient resolution (pick exactly one; defaults to `self` if none given):
+- `to` as a string - a single E.164 digit string, e.g. `"919876543210"`.
+- `to` as an array - up to 5 E.164 digit strings for a small broadcast
+  (anything beyond 5 is dropped server-side).
+- `username` - an OpenAlgo login ID, resolved via the linked-users table.
+- neither - defaults to `self: true` (the paired device's own number).
+
+```javascript
+async function sendWhatsAppAlert() {
+  try {
+    // Send to self - simplest case
+    const selfResult = await openalgo.whatsapp({
+      message: 'Build #482 deployed. P&L: +1.2%'
+    });
+    console.log('WhatsApp Result:', selfResult);
+    // Response (waitForDelivery defaults to true):
+    // {
+    //   status: 'success',
+    //   message: 'Delivered to 1, failed 0',
+    //   data: { sent: ['<self>'], failed: [], skipped: 0 }
+    // }
+
+    // Send to a single number
+    await openalgo.whatsapp({
+      message: 'Are you free for a quick call?',
+      to: '919876543210'
+    });
+
+    // Small broadcast (up to 5 numbers)
+    await openalgo.whatsapp({
+      message: 'Server maintenance in 10 minutes',
+      to: ['919876543210', '919812345678', '919900112233']
+    });
+
+    // Send a chart image with a caption
+    await openalgo.whatsapp({
+      message: 'NIFTY end-of-day chart',
+      to: '919876543210',
+      image: '/srv/charts/nifty_eod.png'
+    });
+
+    // Send a daily report PDF to an OpenAlgo username
+    await openalgo.whatsapp({
+      username: 'alice',
+      document: '/srv/reports/2026-05-17.pdf',
+      filename: 'summary.pdf',
+      caption: 'Daily P&L report attached'
+    });
+
+    // Fire-and-forget for time-critical alerts (skip the delivery report)
+    await openalgo.whatsapp({
+      message: 'Stop-loss hit on BANKNIFTY!',
+      waitForDelivery: false
+    });
+    // Response: { status: 'success', message: 'Queued for 1 recipient(s)', queued: 1 }
+  } catch (error) {
+    console.error('Error sending WhatsApp message:', error.message);
   }
 }
 ```
@@ -739,6 +961,40 @@ async function streamDepth() {
     } catch (error) {
         console.error('Error:', error.message);
     }
+}
+```
+
+#### Polling Cached Snapshots (getLtp / getQuotes / getDepth)
+
+In addition to push-based callbacks, the client keeps a local cache of the
+latest message received per instrument (mirroring the Python SDK's
+`get_ltp` / `get_quotes` / `get_depth`). Use these getters to poll the most
+recent snapshot at any time, without needing a callback:
+
+```javascript
+async function pollSnapshots() {
+    await client.connect();
+    client.subscribe_ltp([{ exchange: "NSE", symbol: "RELIANCE" }]);
+    client.subscribe_quote([{ exchange: "NSE", symbol: "TCS" }]);
+    client.subscribe_depth([{ exchange: "NSE", symbol: "HDFCBANK" }]);
+
+    // Give the feed a moment to deliver the first tick
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // All three getters accept optional (exchange, symbol) filters
+    console.log(client.getLtp());
+    // { ltp: { NSE: { RELIANCE: { timestamp: 1735900000000, ltp: 2900.5 } } } }
+
+    console.log(client.getLtp("NSE"));           // filter by exchange
+    console.log(client.getLtp("NSE", "RELIANCE")); // filter by exchange + symbol
+
+    console.log(client.getQuotes());
+    // { quote: { NSE: { TCS: { timestamp, open, high, low, close, ltp, volume, ... } } } }
+
+    console.log(client.getDepth());
+    // { depth: { NSE: { HDFCBANK: { timestamp, ltp, buyBook: {"1": {...}, ...}, sellBook: {"1": {...}, ...} } } } }
+
+    client.disconnect();
 }
 ```
 

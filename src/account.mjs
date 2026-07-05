@@ -132,17 +132,23 @@ class AccountAPI extends BaseAPI {
     /**
      * Get trading holidays for a year.
      *
-     * @param {Object} params - Request parameters
-     * @param {number} params.year - Year to get holidays for (e.g., 2025)
+     * @param {Object} [params] - Request parameters
+     * @param {number} [params.year] - Year to get holidays for (e.g., 2025).
+     *   Optional - defaults to the current year (client-side) if omitted,
+     *   matching the Python SDK.
      * @returns {Promise<Object>} JSON response containing holidays data
      * @example
      * const response = await client.holidays({ year: 2026 });
+     *
+     * // Defaults to the current year
+     * const currentYearHolidays = await client.holidays();
      */
-    async holidays({ year }) {
+    async holidays({ year } = {}) {
         const url = `${this.baseUrl}market/holidays`;
+        const resolvedYear = year !== undefined && year !== null ? year : new Date().getFullYear();
         const payload = {
             apikey: this.apiKey,
-            year
+            year: resolvedYear
         };
         return this._post(url, payload);
     }
@@ -150,17 +156,23 @@ class AccountAPI extends BaseAPI {
     /**
      * Get exchange trading timings for a specific date.
      *
-     * @param {Object} params - Request parameters
-     * @param {string} params.date - Date in YYYY-MM-DD format
+     * @param {Object} [params] - Request parameters
+     * @param {string} [params.date] - Date in YYYY-MM-DD format. Optional -
+     *   defaults to today's date (client-side) if omitted, matching the
+     *   Python SDK.
      * @returns {Promise<Object>} JSON response containing timings data
      * @example
      * const response = await client.timings({ date: "2025-12-19" });
+     *
+     * // Defaults to today
+     * const todaysTimings = await client.timings();
      */
-    async timings({ date }) {
+    async timings({ date } = {}) {
         const url = `${this.baseUrl}market/timings`;
+        const resolvedDate = date || new Date().toISOString().split('T')[0];
         const payload = {
             apikey: this.apiKey,
-            date
+            date: resolvedDate
         };
         return this._post(url, payload);
     }

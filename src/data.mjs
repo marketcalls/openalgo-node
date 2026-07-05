@@ -139,6 +139,16 @@ class DataAPI extends BaseAPI {
     }
 
     /**
+     * Legacy method. Use intervals() instead.
+     * Get supported time intervals for historical data.
+     *
+     * @returns {Promise<Object>} JSON response containing supported intervals
+     */
+    async interval() {
+        return this.intervals();
+    }
+
+    /**
      * Get expiry dates for a symbol.
      *
      * @param {Object} params - Request parameters
@@ -312,8 +322,16 @@ class DataAPI extends BaseAPI {
      * @param {string} params.symbol - Option symbol (e.g., "NIFTY25NOV2526000CE")
      * @param {string} params.exchange - Exchange code (e.g., "NFO")
      * @param {number} [params.interestRate=0] - Risk-free interest rate
+     * @param {number} [params.forwardPrice] - Custom forward/synthetic futures
+     *   price. If provided, skips the underlying price fetch. Useful for
+     *   synthetic futures pricing, illiquid underlyings (FINNIFTY,
+     *   MIDCPNIFTY), or custom scenario analysis.
      * @param {string} params.underlyingSymbol - Underlying symbol (e.g., "NIFTY")
      * @param {string} params.underlyingExchange - Underlying exchange (e.g., "NSE_INDEX")
+     * @param {string} [params.expiryTime] - Custom expiry time in HH:MM format
+     *   (e.g., "17:00", "19:00"). Required for MCX contracts with
+     *   non-standard expiry times. Exchange defaults: NFO/BFO=15:30,
+     *   CDS=12:30, MCX=23:30.
      * @returns {Promise<Object>} JSON response containing option Greeks
      * @example
      * const response = await client.optionGreeks({
@@ -323,8 +341,23 @@ class DataAPI extends BaseAPI {
      *     underlyingSymbol: "NIFTY",
      *     underlyingExchange: "NSE_INDEX"
      * });
+     *
+     * // With a custom forward price (synthetic futures)
+     * const withForward = await client.optionGreeks({
+     *     symbol: "NIFTY02DEC2526000CE",
+     *     exchange: "NFO",
+     *     forwardPrice: 26350,
+     *     interestRate: 6.5
+     * });
+     *
+     * // MCX with custom expiry time
+     * const mcx = await client.optionGreeks({
+     *     symbol: "CRUDEOIL17DEC255400CE",
+     *     exchange: "MCX",
+     *     expiryTime: "19:00"
+     * });
      */
-    async optionGreeks({ symbol, exchange, interestRate = 0, underlyingSymbol, underlyingExchange }) {
+    async optionGreeks({ symbol, exchange, interestRate = 0, forwardPrice, underlyingSymbol, underlyingExchange, expiryTime }) {
         const url = `${this.baseUrl}optiongreeks`;
         const payload = {
             apikey: this.apiKey,
@@ -334,6 +367,14 @@ class DataAPI extends BaseAPI {
             underlying_symbol: underlyingSymbol,
             underlying_exchange: underlyingExchange
         };
+
+        if (forwardPrice !== undefined && forwardPrice !== null) {
+            payload.forward_price = forwardPrice;
+        }
+        if (expiryTime !== undefined && expiryTime !== null) {
+            payload.expiry_time = expiryTime;
+        }
+
         return this._post(url, payload);
     }
 

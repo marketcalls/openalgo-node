@@ -8,6 +8,7 @@ import DataAPIClass from './data.mjs';
 import AccountAPIClass from './account.mjs';
 import StrategyClass from './strategy.mjs';
 import AnalyzerAPIClass from './analyzer.mjs';
+import WhatsAppAPIClass from './whatsapp.mjs';
 import OpenAlgoWebSocketClass from './websocket.mjs';
 
 /**
@@ -21,6 +22,7 @@ class OpenAlgo extends OrderAPIClass {
         this._dataAPI = new DataAPIClass(apiKey, host, version);
         this._accountAPI = new AccountAPIClass(apiKey, host, version);
         this._analyzerAPI = new AnalyzerAPIClass(apiKey, host, version);
+        this._whatsappAPI = new WhatsAppAPIClass(apiKey, host, version);
         this._wsClient = null;
         this._wsUrl = wsUrl;
         this._apiKey = apiKey;
@@ -37,6 +39,8 @@ class OpenAlgo extends OrderAPIClass {
     symbol(params) { return this._dataAPI.symbol(params); }
     history(params) { return this._dataAPI.history(params); }
     intervals() { return this._dataAPI.intervals(); }
+    /** Legacy alias for intervals(). @returns {Promise<Object>} */
+    interval() { return this._dataAPI.interval(); }
     expiry(params) { return this._dataAPI.expiry(params); }
     search(params) { return this._dataAPI.search(params); }
     multiQuotes(params) { return this._dataAPI.multiQuotes(params); }
@@ -60,6 +64,9 @@ class OpenAlgo extends OrderAPIClass {
     // Analyzer API methods
     analyzerstatus() { return this._analyzerAPI.analyzerstatus(); }
     analyzertoggle(params) { return this._analyzerAPI.analyzertoggle(params); }
+
+    // WhatsApp API methods
+    whatsapp(params) { return this._whatsappAPI.whatsapp(params); }
 
     // WebSocket methods
     /**
@@ -147,6 +154,55 @@ class OpenAlgo extends OrderAPIClass {
             this._wsClient.unsubscribe_depth(instruments);
         }
     }
+
+    /**
+     * Get the latest cached LTP snapshot received over the WebSocket feed,
+     * in nested format: `{ ltp: { EXCHANGE: { SYMBOL: { timestamp, ltp } } } }`.
+     * Returns an empty snapshot (`{ ltp: {} }`) if not connected yet.
+     *
+     * @param {string} [exchange] - Filter by exchange
+     * @param {string} [symbol] - Filter by symbol (requires exchange to be specified)
+     * @returns {Object} Nested LTP snapshot
+     */
+    getLtp(exchange, symbol) {
+        if (!this._wsClient) {
+            return { ltp: {} };
+        }
+        return this._wsClient.getLtp(exchange, symbol);
+    }
+
+    /**
+     * Get the latest cached Quote snapshot received over the WebSocket feed,
+     * in nested format: `{ quote: { EXCHANGE: { SYMBOL: { ... } } } }`.
+     * Returns an empty snapshot (`{ quote: {} }`) if not connected yet.
+     *
+     * @param {string} [exchange] - Filter by exchange
+     * @param {string} [symbol] - Filter by symbol (requires exchange to be specified)
+     * @returns {Object} Nested Quote snapshot
+     */
+    getQuotes(exchange, symbol) {
+        if (!this._wsClient) {
+            return { quote: {} };
+        }
+        return this._wsClient.getQuotes(exchange, symbol);
+    }
+
+    /**
+     * Get the latest cached Market Depth snapshot received over the
+     * WebSocket feed, in nested format:
+     * `{ depth: { EXCHANGE: { SYMBOL: { timestamp, ltp, buyBook, sellBook } } } }`.
+     * Returns an empty snapshot (`{ depth: {} }`) if not connected yet.
+     *
+     * @param {string} [exchange] - Filter by exchange
+     * @param {string} [symbol] - Filter by symbol (requires exchange to be specified)
+     * @returns {Object} Nested Market Depth snapshot
+     */
+    getDepth(exchange, symbol) {
+        if (!this._wsClient) {
+            return { depth: {} };
+        }
+        return this._wsClient.getDepth(exchange, symbol);
+    }
 }
 
 // Named exports
@@ -155,6 +211,7 @@ export const DataAPI = DataAPIClass;
 export const AccountAPI = AccountAPIClass;
 export const Strategy = StrategyClass;
 export const AnalyzerAPI = AnalyzerAPIClass;
+export const WhatsAppAPI = WhatsAppAPIClass;
 export const OpenAlgoWebSocket = OpenAlgoWebSocketClass;
 export const version = "1.0.5";
 
